@@ -1,5 +1,6 @@
 browser_profile/
 downloads/
+logs/
 __pycache__/
 *.pyc
 .env

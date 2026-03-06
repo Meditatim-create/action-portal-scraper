@@ -126,7 +126,7 @@ def _render_filters(df: pd.DataFrame):
     st.sidebar.header("Filters")
 
     if "Owner" in df.columns:
-        owners = sorted(df["Owner"].dropna().unique())
+        owners = sorted(df["Owner"].dropna().loc[df["Owner"].str.strip() != ""].unique())
         st.sidebar.multiselect("Owner (DSV / Goods)", owners, key="action_owner_filter")
 
     if "DC" in df.columns:

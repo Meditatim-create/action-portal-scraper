@@ -3,6 +3,7 @@
 import glob
 import os
 import re
+from datetime import date, timedelta
 from io import BytesIO
 
 import pandas as pd
@@ -111,6 +112,15 @@ def _metric_card_grijs(col, label: str, waarde: int, hint: str):
 
 # ---------- Filters ----------
 
+def _vorige_werkweek():
+    """Bereken maandag en vrijdag van de vorige werkweek."""
+    vandaag = date.today()
+    # Maandag van deze week, dan 7 dagen terug = maandag vorige week
+    maandag = vandaag - timedelta(days=vandaag.weekday() + 7)
+    vrijdag = maandag + timedelta(days=4)
+    return maandag, vrijdag
+
+
 def _render_filters(df: pd.DataFrame):
     """Sidebar filters."""
     st.sidebar.header("Filters")
@@ -124,8 +134,18 @@ def _render_filters(df: pd.DataFrame):
         if not datum_vals.empty:
             min_d = datum_vals.min().date()
             max_d = datum_vals.max().date()
-            st.sidebar.date_input("Van", value=min_d, min_value=min_d, max_value=max_d, key="action_datum_van")
-            st.sidebar.date_input("Tot", value=max_d, min_value=min_d, max_value=max_d, key="action_datum_tot")
+            vw_van, vw_tot = _vorige_werkweek()
+            # Begrens standaardwaarden tot beschikbare data
+            default_van = max(vw_van, min_d)
+            default_tot = min(vw_tot, max_d)
+
+            st.sidebar.date_input("Van", value=default_van, min_value=min_d, max_value=max_d, key="action_datum_van")
+            st.sidebar.date_input("Tot", value=default_tot, min_value=min_d, max_value=max_d, key="action_datum_tot")
+
+            if st.sidebar.button("Toon alles"):
+                st.session_state.action_datum_van = min_d
+                st.session_state.action_datum_tot = max_d
+                st.rerun()
 
 
 def _pas_filters_toe(df: pd.DataFrame) -> pd.DataFrame:
@@ -417,14 +437,14 @@ st.markdown(
 
 # ---------- Wachtwoord check ----------
 
-def check_wachtwoord() -> bool:
-    """Toon login formulier en controleer wachtwoord."""
+def check_login() -> bool:
+    """Toon login formulier en controleer gebruikersnaam + wachtwoord."""
     if st.session_state.get("ingelogd"):
         return True
 
-    # Wachtwoord uit secrets laden
+    # Gebruikers uit secrets laden
     try:
-        correct_ww = st.secrets["wachtwoord"]
+        gebruikers = st.secrets["gebruikers"]
     except (KeyError, FileNotFoundError):
         # Geen secrets = development mode, geen login nodig
         return True
@@ -449,20 +469,22 @@ def check_wachtwoord() -> bool:
     )
 
     with st.form("login_form"):
+        gebruikersnaam = st.text_input("Gebruikersnaam")
         wachtwoord = st.text_input("Wachtwoord", type="password")
         verzonden = st.form_submit_button("Inloggen")
 
         if verzonden:
-            if wachtwoord == correct_ww:
+            if gebruikersnaam in gebruikers and gebruikers[gebruikersnaam] == wachtwoord:
                 st.session_state.ingelogd = True
+                st.session_state.gebruiker = gebruikersnaam
                 st.rerun()
             else:
-                st.error("Onjuist wachtwoord.")
+                st.error("Onjuiste gebruikersnaam of wachtwoord.")
 
     return False
 
 
-if not check_wachtwoord():
+if not check_login():
     st.stop()
 
 # Data laden: data/ map (cloud) → downloads/ map (lokaal) → file uploader (fallback)
@@ -495,17 +517,7 @@ def _laad_automatisch():
 if st.session_state.df_action is None:
     st.session_state.df_action, bron = _laad_automatisch()
 
-with st.sidebar:
-    st.header("📁 Data")
-    uploaded = st.file_uploader(
-        "Upload AppointmentReport (.xlsx)",
-        type=["xlsx"],
-        help="Optioneel: upload handmatig een ander rapport.",
-    )
-    if uploaded is not None:
-        st.session_state.df_action = verwerk_excel(uploaded)
-
 if st.session_state.df_action is not None:
     render_dashboard(st.session_state.df_action)
 else:
-    st.info("Geen data gevonden. Upload een AppointmentReport Excel bestand via de sidebar.")
+    st.info("Geen data gevonden. Controleer of het rapport is gesynchroniseerd.")

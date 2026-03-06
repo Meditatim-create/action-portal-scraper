@@ -125,6 +125,10 @@ def _render_filters(df: pd.DataFrame):
     """Sidebar filters."""
     st.sidebar.header("Filters")
 
+    if "Owner" in df.columns:
+        owners = sorted(df["Owner"].dropna().unique())
+        st.sidebar.multiselect("Owner (DSV / Goods)", owners, key="action_owner_filter")
+
     if "DC" in df.columns:
         dcs = sorted(df["DC"].dropna().unique())
         st.sidebar.multiselect("DC (distributiecentrum)", dcs, key="action_dc_filter")
@@ -151,6 +155,10 @@ def _render_filters(df: pd.DataFrame):
 def _pas_filters_toe(df: pd.DataFrame) -> pd.DataFrame:
     """Pas filters toe."""
     mask = pd.Series(True, index=df.index)
+
+    geselecteerde_owners = st.session_state.get("action_owner_filter", [])
+    if geselecteerde_owners:
+        mask &= df["Owner"].isin(geselecteerde_owners)
 
     geselecteerde_dcs = st.session_state.get("action_dc_filter", [])
     if geselecteerde_dcs:

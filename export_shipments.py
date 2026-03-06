@@ -7,6 +7,8 @@ Ondersteunt headless mode voor scheduled tasks.
 from playwright.sync_api import sync_playwright
 from pathlib import Path
 from datetime import date, datetime
+import shutil
+import subprocess
 import sys
 import time
 import logging
@@ -16,6 +18,8 @@ PROJECT_DIR = Path(__file__).parent
 USER_DATA_DIR = PROJECT_DIR / "browser_profile"
 DOWNLOAD_DIR = PROJECT_DIR / "downloads"
 DOWNLOAD_DIR.mkdir(exist_ok=True)
+DATA_DIR = PROJECT_DIR / "data"
+DATA_DIR.mkdir(exist_ok=True)
 LOG_DIR = PROJECT_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -106,6 +110,25 @@ def export_to_excel(page):
     return filepath
 
 
+def push_naar_github(filepath: Path):
+    """Kopieer bestand naar data/ map en push naar GitHub."""
+    data_bestand = DATA_DIR / "AppointmentReport_latest.xlsx"
+    shutil.copy2(filepath, data_bestand)
+    log.info(f"Gekopieerd naar: {data_bestand}")
+
+    try:
+        subprocess.run(["git", "add", str(data_bestand)], cwd=PROJECT_DIR, check=True)
+        datum = date.today().strftime("%Y-%m-%d")
+        subprocess.run(
+            ["git", "commit", "-m", f"Update rapport {datum}"],
+            cwd=PROJECT_DIR, check=True,
+        )
+        subprocess.run(["git", "push"], cwd=PROJECT_DIR, check=True)
+        log.info("Data gepusht naar GitHub — dashboard wordt automatisch bijgewerkt.")
+    except subprocess.CalledProcessError as e:
+        log.warning(f"Git push mislukt: {e}")
+
+
 def main():
     headless = "--headless" in sys.argv
 
@@ -136,6 +159,7 @@ def main():
             set_date_filter(page, from_date, to_date)
             click_search(page)
             filepath = export_to_excel(page)
+            push_naar_github(filepath)
 
             log.info(f"Klaar! Bestand: {filepath}")
         except Exception as e:

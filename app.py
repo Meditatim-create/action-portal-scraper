@@ -11,6 +11,7 @@ import streamlit as st
 
 # ---------- Configuratie ----------
 
+DATA_PAD = os.path.join(os.path.dirname(__file__), "data")
 DOWNLOADS_PAD = os.path.join(os.path.dirname(__file__), "downloads")
 
 DATUM_KOLOMMEN = [
@@ -464,38 +465,47 @@ def check_wachtwoord() -> bool:
 if not check_wachtwoord():
     st.stop()
 
-# Data laden: upload of lokale downloads map
+# Data laden: data/ map (cloud) → downloads/ map (lokaal) → file uploader (fallback)
 if "df_action" not in st.session_state:
     st.session_state.df_action = None
+
+def _laad_automatisch():
+    """Probeer data automatisch te laden uit data/ of downloads/ map."""
+    # 1. data/ map (Streamlit Cloud — gepusht door scraper)
+    latest = os.path.join(DATA_PAD, "AppointmentReport_latest.xlsx")
+    if os.path.exists(latest):
+        return verwerk_excel(latest), "cloud"
+
+    # 2. downloads/ map (lokaal development)
+    pattern = os.path.join(DOWNLOADS_PAD, "AppointmentReport_*.xlsx")
+    bestanden = glob.glob(pattern)
+    if bestanden:
+        datum_re = re.compile(r"AppointmentReport_(\d{4}-\d{2}-\d{2})\.xlsx$")
+        bestanden_met_datum = []
+        for pad in bestanden:
+            m = datum_re.search(os.path.basename(pad))
+            if m:
+                bestanden_met_datum.append((m.group(1), pad))
+        if bestanden_met_datum:
+            bestanden_met_datum.sort(reverse=True)
+            return verwerk_excel(bestanden_met_datum[0][1]), "lokaal"
+
+    return None, None
+
+if st.session_state.df_action is None:
+    st.session_state.df_action, bron = _laad_automatisch()
 
 with st.sidebar:
     st.header("📁 Data")
     uploaded = st.file_uploader(
         "Upload AppointmentReport (.xlsx)",
         type=["xlsx"],
-        help="Excel export uit het Action Supply Chain Portal.",
+        help="Optioneel: upload handmatig een ander rapport.",
     )
-
     if uploaded is not None:
         st.session_state.df_action = verwerk_excel(uploaded)
-        st.success(f"📊 {len(st.session_state.df_action)} shipments geladen")
-    elif st.session_state.df_action is None:
-        # Probeer lokaal te laden (voor development)
-        pattern = os.path.join(DOWNLOADS_PAD, "AppointmentReport_*.xlsx")
-        bestanden = glob.glob(pattern)
-        if bestanden:
-            datum_re = re.compile(r"AppointmentReport_(\d{4}-\d{2}-\d{2})\.xlsx$")
-            bestanden_met_datum = []
-            for pad in bestanden:
-                m = datum_re.search(os.path.basename(pad))
-                if m:
-                    bestanden_met_datum.append((m.group(1), pad))
-            if bestanden_met_datum:
-                bestanden_met_datum.sort(reverse=True)
-                st.session_state.df_action = verwerk_excel(bestanden_met_datum[0][1])
-                st.success(f"📊 {len(st.session_state.df_action)} shipments geladen (lokaal)")
 
 if st.session_state.df_action is not None:
     render_dashboard(st.session_state.df_action)
 else:
-    st.info("Upload een AppointmentReport Excel bestand via de sidebar om te beginnen.")
+    st.info("Geen data gevonden. Upload een AppointmentReport Excel bestand via de sidebar.")

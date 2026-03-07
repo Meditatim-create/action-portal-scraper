@@ -7,11 +7,15 @@ Ondersteunt headless mode voor scheduled tasks.
 from playwright.sync_api import sync_playwright
 from pathlib import Path
 from datetime import date, datetime
+from dotenv import load_dotenv
+import os
 import shutil
 import subprocess
 import sys
 import time
 import logging
+
+load_dotenv()
 
 # Paden
 PROJECT_DIR = Path(__file__).parent
@@ -38,6 +42,12 @@ log = logging.getLogger(__name__)
 BASE_URL = "https://supplychainportal.action.eu"
 REPORT_URL = f"{BASE_URL}/PAct/Report/AppointmentReportSupplier.aspx"
 
+# Login IDs
+LOGIN_USER = "ctl00_MainContent_LoginControl_TheLogin_UserName"
+LOGIN_PASS = "ctl00_MainContent_LoginControl_TheLogin_Password"
+LOGIN_REMEMBER = "ctl00_MainContent_LoginControl_TheLogin_RememberMe"
+LOGIN_BTN = "ctl00_MainContent_LoginControl_TheLogin_Login"
+
 # Filter IDs
 DATE_FROM = "ctl00_MainContent_DataOverview_AppointmentReportFilterSupplier_FilterAppoinmentDate_DateFromToSelector_FromDateSelector_txtDate"
 DATE_TO = "ctl00_MainContent_DataOverview_AppointmentReportFilterSupplier_FilterAppoinmentDate_DateFromToSelector_ToDateSelector_txtDate"
@@ -46,11 +56,31 @@ BTN_EXPORT = "ctl00_MainContent_DataOverview_AppointmentReportExcelSupplier_theD
 
 
 def login_if_needed(page, headless):
-    """Check of login nodig is."""
-    if "login" in page.url.lower() or "AppointmentReportSupplier" not in page.url:
-        if headless:
-            log.error("Sessie verlopen! Draai het script handmatig (zonder --headless) om opnieuw in te loggen.")
+    """Check of login nodig is en log automatisch in via .env credentials."""
+    if "login" not in page.url.lower() and "AppointmentReportSupplier" in page.url:
+        return
+
+    gebruiker = os.getenv("ACTION_USER")
+    wachtwoord = os.getenv("ACTION_PASS")
+
+    if gebruiker and wachtwoord:
+        log.info("Sessie verlopen — automatisch inloggen...")
+        page.locator(f"#{LOGIN_USER}").fill(gebruiker)
+        page.locator(f"#{LOGIN_PASS}").fill(wachtwoord)
+        page.locator(f"#{LOGIN_REMEMBER}").check()
+        page.locator(f"#{LOGIN_BTN}").click()
+        page.wait_for_load_state("networkidle", timeout=30_000)
+
+        if "login" in page.url.lower():
+            log.error("Automatische login mislukt — controleer ACTION_USER en ACTION_PASS in .env")
             sys.exit(1)
+
+        log.info("Ingelogd! Navigeren naar report...")
+        page.goto(REPORT_URL, wait_until="networkidle", timeout=30_000)
+    elif headless:
+        log.error("Sessie verlopen en geen credentials in .env! Stel ACTION_USER en ACTION_PASS in.")
+        sys.exit(1)
+    else:
         log.info("Login nodig — log in via het browservenster (max 5 min)...")
         page.wait_for_function(
             """() => !window.location.href.toLowerCase().includes('login')""",

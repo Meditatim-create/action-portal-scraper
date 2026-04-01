@@ -3,7 +3,7 @@
 import os
 import subprocess
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
 import streamlit as st
@@ -66,11 +66,35 @@ def _data_is_verouderd() -> bool:
     return leeftijd > REFRESH_INTERVAL
 
 
+def _nu_nl() -> datetime:
+    """Huidige tijd in Nederlandse tijdzone (UTC+1 winter, UTC+2 zomer)."""
+    # Simpele CEST/CET check: laatste zondag van maart t/m laatste zondag van oktober
+    nu_utc = datetime.now(timezone.utc)
+    jaar = nu_utc.year
+    # Laatste zondag van maart
+    mrt = date(jaar, 3, 31)
+    start_zomer = mrt - timedelta(days=mrt.weekday() + 1) if mrt.weekday() != 6 else mrt
+    # Laatste zondag van oktober
+    okt = date(jaar, 10, 31)
+    eind_zomer = okt - timedelta(days=okt.weekday() + 1) if okt.weekday() != 6 else okt
+    is_zomertijd = start_zomer <= nu_utc.date() < eind_zomer
+    offset = timedelta(hours=2) if is_zomertijd else timedelta(hours=1)
+    return (nu_utc + offset).replace(tzinfo=None)
+
+
 def _data_versheid() -> str | None:
-    """Geef bestandstijd van het today-rapport."""
+    """Geef bestandstijd van het today-rapport in NL-tijd."""
     if os.path.exists(TODAY_BESTAND):
-        mtime = datetime.fromtimestamp(os.path.getmtime(TODAY_BESTAND))
-        return mtime.strftime("%H:%M")
+        mtime_utc = datetime.fromtimestamp(os.path.getmtime(TODAY_BESTAND), tz=timezone.utc)
+        # Zelfde offset als _nu_nl
+        jaar = mtime_utc.year
+        mrt = date(jaar, 3, 31)
+        start_zomer = mrt - timedelta(days=mrt.weekday() + 1) if mrt.weekday() != 6 else mrt
+        okt = date(jaar, 10, 31)
+        eind_zomer = okt - timedelta(days=okt.weekday() + 1) if okt.weekday() != 6 else okt
+        is_zomertijd = start_zomer <= mtime_utc.date() < eind_zomer
+        offset = timedelta(hours=2) if is_zomertijd else timedelta(hours=1)
+        return (mtime_utc + offset).strftime("%H:%M")
     return None
 
 
@@ -296,7 +320,7 @@ def render_vandaag():
     # Auto-refresh elke 10 minuten
     st_autorefresh(interval=REFRESH_INTERVAL * 1000, key="vandaag_refresh")
 
-    nu = datetime.now()
+    nu = _nu_nl()
 
     # --- Live data ophalen als verouderd ---
     verouderd = _data_is_verouderd()

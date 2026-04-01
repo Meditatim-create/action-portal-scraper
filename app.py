@@ -528,9 +528,14 @@ if st.session_state.df_action is None:
 
 # ---------- Navigatie ----------
 
-vandaag_pagina = st.Page("paginas/vandaag.py", title="Vandaag", icon="📋", default=True)
-gisteren_pagina = st.Page("paginas/gisteren.py", title="Gisteren", icon="📝")
-performance_pagina = st.Page("paginas/performance.py", title="Performance", icon="📊")
+paginas = []
 
-nav = st.navigation([vandaag_pagina, gisteren_pagina, performance_pagina])
+# Vandaag en Gisteren alleen voor Tim (nog in ontwikkeling)
+if st.session_state.get("gebruiker") == "tim":
+    paginas.append(st.Page("paginas/vandaag.py", title="Vandaag", icon="📋", default=True))
+    paginas.append(st.Page("paginas/gisteren.py", title="Gisteren", icon="📝"))
+
+paginas.append(st.Page("paginas/performance.py", title="Performance", icon="📊"))
+
+nav = st.navigation(paginas)
 nav.run()

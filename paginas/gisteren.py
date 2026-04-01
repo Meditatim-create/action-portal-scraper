@@ -106,27 +106,31 @@ def _metric(label: str, waarde: str, kleur: str = ELHO_DONKER) -> str:
     )
 
 
+def _render_kpi_kaart(col, label: str, waarde: str, kleur: str, sublabel: str = ""):
+    """KPI kaart — zelfde stijl als vandaag-pagina."""
+    sub = f'<div style="font-size:0.7rem;color:{BRUIN};margin-top:2px;min-height:1em;">{sublabel}</div>' if sublabel else '<div style="min-height:1em;"></div>'
+    col.markdown(
+        f'<div style="background:{CRÈME};border:1px solid {kleur}25;border-radius:14px;'
+        f'padding:14px 12px 10px;text-align:center;">'
+        f'<div style="font-size:0.75rem;color:{ELHO_DONKER}80;letter-spacing:0.04em;">{label}</div>'
+        f'<div style="font-size:2.4rem;font-weight:700;color:{kleur};line-height:1.15;margin:2px 0;">{waarde}</div>'
+        f'{sub}</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def _render_samenvatting(stats: dict):
     """Render de KPI samenvatting."""
     otd_kleur = ELHO_GROEN if stats["otd_pct"] >= 95 else ORANJE if stats["otd_pct"] >= 85 else ROOD
     slot_kleur = ELHO_GROEN if stats["slot_pct"] >= 95 else ORANJE if stats["slot_pct"] >= 85 else ROOD
+    noshow_cancel = stats["noshow"] + stats["cancelled"]
 
     c1, c2, c3, c4, c5 = st.columns(5)
-    for col, label, waarde, kleur in [
-        (c1, "ritten", str(stats["totaal"]), ELHO_DONKER),
-        (c2, "afgerond", str(stats["finished"]), ELHO_GROEN),
-        (c3, "on-time delivery", f'{stats["otd_pct"]:.0f}%', otd_kleur),
-        (c4, "slot performance", f'{stats["slot_pct"]:.0f}%', slot_kleur),
-        (c5, "no-show / cancel", str(stats["noshow"] + stats["cancelled"]), ROOD if (stats["noshow"] + stats["cancelled"]) > 0 else GRIJS),
-    ]:
-        col.markdown(
-            f'<div style="background:{CRÈME};border:1px solid {kleur}25;border-radius:14px;'
-            f'padding:14px 8px 10px;text-align:center;">'
-            f'<div style="font-size:0.7rem;color:{ELHO_DONKER}80;letter-spacing:0.04em;">{label}</div>'
-            f'<div style="font-size:2rem;font-weight:700;color:{kleur};line-height:1.2;margin:2px 0;">{waarde}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+    _render_kpi_kaart(c1, "ritten", str(stats["totaal"]), ELHO_DONKER)
+    _render_kpi_kaart(c2, "afgerond", str(stats["finished"]), ELHO_GROEN)
+    _render_kpi_kaart(c3, "on-time delivery", f'{stats["otd_pct"]:.0f}%', otd_kleur)
+    _render_kpi_kaart(c4, "slot performance", f'{stats["slot_pct"]:.0f}%', slot_kleur)
+    _render_kpi_kaart(c5, "no-show / cancel", str(noshow_cancel), ROOD if noshow_cancel > 0 else GRIJS)
 
 
 def _render_detail_tabel(df: pd.DataFrame):
@@ -292,12 +296,18 @@ def render_gisteren():
     dag = _vorige_werkdag()
 
     st.markdown(
-        f'<div style="margin-bottom:20px;">'
-        f'<h2 style="margin:0;color:{ELHO_DONKER};font-weight:700;letter-spacing:-0.02em;">'
-        f'gisteren \u2014 {nl_datum(dag)}</h2>'
-        f'<div style="font-size:0.8rem;color:{ELHO_DONKER}80;margin-top:4px;">'
-        f'samenvatting vorige werkdag \u00b7 escalatie & complimenten'
-        f'</div></div>',
+        f"""
+        <div style="margin-bottom: 10px;">
+            <h2 style="margin:0;color:{ELHO_DONKER};font-weight:700;letter-spacing:-0.02em;font-size:1.5rem;">
+                gisteren \u2014 {nl_datum(dag)}
+            </h2>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+                <span style="font-size:0.8rem;color:{ELHO_DONKER}80;">
+                    samenvatting vorige werkdag \u00b7 escalatie & complimenten
+                </span>
+            </div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 

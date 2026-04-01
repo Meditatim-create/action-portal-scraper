@@ -1,19 +1,9 @@
 """Vandaag — live overzicht van ritten met auto-refresh elke 10 minuten."""
 
-import locale
 import os
 import subprocess
 import time
 from datetime import date, datetime, timedelta
-
-# Nederlandse dag- en maandnamen
-try:
-    locale.setlocale(locale.LC_TIME, "nl_NL.UTF-8")
-except locale.Error:
-    try:
-        locale.setlocale(locale.LC_TIME, "Dutch_Netherlands.1252")
-    except locale.Error:
-        pass  # Fallback naar systeem-default
 
 import pandas as pd
 import streamlit as st
@@ -27,6 +17,7 @@ from constanten import (
     ORANJE,
     REFRESH_INTERVAL,
     ROOD,
+    nl_datum,
 )
 
 # ---------- Constanten ----------
@@ -329,7 +320,7 @@ def render_vandaag():
         f"""
         <div style="margin-bottom: 10px;">
             <h2 style="margin:0;color:{ELHO_DONKER};font-weight:700;letter-spacing:-0.02em;font-size:1.5rem;">
-                vandaag — {nu.strftime('%A %d %B').lower()}
+                vandaag — {nl_datum(nu.date())}
             </h2>
             <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
                 <span style="

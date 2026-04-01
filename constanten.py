@@ -1,6 +1,18 @@
 """Gedeelde constanten voor het Action Portal Dashboard."""
 
 import os
+from datetime import date
+
+# ---------- Nederlandse datum ----------
+
+_DAGEN = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
+_MAANDEN = ["", "januari", "februari", "maart", "april", "mei", "juni",
+            "juli", "augustus", "september", "oktober", "november", "december"]
+
+
+def nl_datum(d: date) -> str:
+    """Geef datum als 'woensdag 01 april'."""
+    return f"{_DAGEN[d.weekday()]} {d.strftime('%d')} {_MAANDEN[d.month]}"
 
 # ---------- Paden ----------
 

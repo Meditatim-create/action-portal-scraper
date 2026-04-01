@@ -1,17 +1,7 @@
 """Gisteren — samenvatting vorige werkdag voor escalatie of complimenten."""
 
-import locale
 import os
 from datetime import date, datetime, timedelta
-
-# Nederlandse dag- en maandnamen
-try:
-    locale.setlocale(locale.LC_TIME, "nl_NL.UTF-8")
-except locale.Error:
-    try:
-        locale.setlocale(locale.LC_TIME, "Dutch_Netherlands.1252")
-    except locale.Error:
-        pass
 
 import pandas as pd
 import streamlit as st
@@ -25,6 +15,7 @@ from constanten import (
     NUMERIEKE_KOLOMMEN,
     ORANJE,
     ROOD,
+    nl_datum,
 )
 
 # ---------- Constanten ----------
@@ -303,7 +294,7 @@ def render_gisteren():
     st.markdown(
         f'<div style="margin-bottom:20px;">'
         f'<h2 style="margin:0;color:{ELHO_DONKER};font-weight:700;letter-spacing:-0.02em;">'
-        f'gisteren \u2014 {dag.strftime("%A %d %B").lower()}</h2>'
+        f'gisteren \u2014 {nl_datum(dag)}</h2>'
         f'<div style="font-size:0.8rem;color:{ELHO_DONKER}80;margin-top:4px;">'
         f'samenvatting vorige werkdag \u00b7 escalatie & complimenten'
         f'</div></div>',

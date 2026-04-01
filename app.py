@@ -12,27 +12,21 @@ import streamlit as st
 
 # ---------- Configuratie ----------
 
-DATA_PAD = os.path.join(os.path.dirname(__file__), "data")
-DOWNLOADS_PAD = os.path.join(os.path.dirname(__file__), "downloads")
-
-DATUM_KOLOMMEN = [
-    "Appointment", "Arrival", "Start unloading", "Finished unloading", "Cancel date",
-]
-
-NUMERIEKE_KOLOMMEN = ["Too late (min)", "Waiting (min)", "Unloading (min)", "Pallets"]
-
-TIME_LABEL_GOED = ["Early", "On time"]
-TIME_LABEL_SLECHT = ["Late", "Late - Reported"]
-
-ONZE_PERFORMANCE_STATES = ["Finished", "Cancelled", "NoShow"]
-SLECHT_STATES = ["Cancelled", "NoShow"]
-
-# Elho branding
-ELHO_GROEN = "#76a73a"
-ELHO_DONKER = "#0a4a2f"
-ROOD = "#e74c3c"
-GRIJS = "#95a5a6"
-ORANJE = "#e67e22"
+from constanten import (  # noqa: E402
+    DATA_PAD,
+    DATUM_KOLOMMEN,
+    DOWNLOADS_PAD,
+    ELHO_DONKER,
+    ELHO_GROEN,
+    GRIJS,
+    NUMERIEKE_KOLOMMEN,
+    ONZE_PERFORMANCE_STATES,
+    ORANJE,
+    ROOD,
+    SLECHT_STATES,
+    TIME_LABEL_GOED,
+    TIME_LABEL_SLECHT,
+)
 
 
 # ---------- Data laden ----------
@@ -434,9 +428,13 @@ st.set_page_config(
 
 st.markdown(
     """
-    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
-        <h1 style="margin: 0; color: #0a4a2f;">🚛 action portal</h1>
-        <span style="color: #76a73a; font-size: 1.1rem;">elho b.v.</span>
+    <style>
+        .block-container { padding-top: 1rem !important; }
+        .block-container > div:first-child { margin-bottom: -1rem; }
+    </style>
+    <div style="display:flex;align-items:baseline;gap:10px;">
+        <span style="font-size:1.5rem;font-weight:700;color:#0a4a2f;">🚛 action portal</span>
+        <span style="color:#76a73a;font-size:0.95rem;">elho b.v.</span>
     </div>
     """,
     unsafe_allow_html=True,
@@ -482,9 +480,10 @@ def check_login() -> bool:
         verzonden = st.form_submit_button("Inloggen")
 
         if verzonden:
-            if gebruikersnaam in gebruikers and gebruikers[gebruikersnaam] == wachtwoord:
+            naam = gebruikersnaam.strip().lower()
+            if naam in gebruikers and gebruikers[naam] == wachtwoord:
                 st.session_state.ingelogd = True
-                st.session_state.gebruiker = gebruikersnaam
+                st.session_state.gebruiker = naam
                 st.rerun()
             else:
                 st.error("Onjuiste gebruikersnaam of wachtwoord.")
@@ -525,7 +524,11 @@ def _laad_automatisch():
 if st.session_state.df_action is None:
     st.session_state.df_action, bron = _laad_automatisch()
 
-if st.session_state.df_action is not None:
-    render_dashboard(st.session_state.df_action)
-else:
-    st.info("Geen data gevonden. Controleer of het rapport is gesynchroniseerd.")
+# ---------- Navigatie ----------
+
+vandaag_pagina = st.Page("paginas/vandaag.py", title="Vandaag", icon="📋", default=True)
+gisteren_pagina = st.Page("paginas/gisteren.py", title="Gisteren", icon="📝")
+performance_pagina = st.Page("paginas/performance.py", title="Performance", icon="📊")
+
+nav = st.navigation([vandaag_pagina, gisteren_pagina, performance_pagina])
+nav.run()

@@ -140,15 +140,12 @@ def export_to_excel(page):
     return filepath
 
 
-def push_naar_github(filepath: Path):
-    """Kopieer bestand naar data/ map en push naar GitHub."""
-    data_bestand = DATA_DIR / "AppointmentReport_latest.xlsx"
-    shutil.copy2(filepath, data_bestand)
-    log.info(f"Gekopieerd naar: {data_bestand}")
-
+def push_naar_github(*bestanden: Path):
+    """Voeg bestanden toe aan git, commit en push naar GitHub."""
     try:
-        subprocess.run(["git", "add", str(data_bestand)], cwd=PROJECT_DIR, check=True)
-        datum = date.today().strftime("%Y-%m-%d")
+        for bestand in bestanden:
+            subprocess.run(["git", "add", str(bestand)], cwd=PROJECT_DIR, check=True)
+        datum = datetime.now().strftime("%Y-%m-%d %H:%M")
         subprocess.run(
             ["git", "commit", "-m", f"Update rapport {datum}"],
             cwd=PROJECT_DIR, check=True,
@@ -159,45 +156,89 @@ def push_naar_github(filepath: Path):
         log.warning(f"Git push mislukt: {e}")
 
 
+def _open_browser(headless):
+    """Start Playwright browser met persistent profile."""
+    pw = sync_playwright().start()
+    context = pw.chromium.launch_persistent_context(
+        user_data_dir=str(USER_DATA_DIR),
+        headless=headless,
+        viewport={"width": 1600, "height": 1000},
+        locale="nl-NL",
+        accept_downloads=True,
+    )
+    page = context.pages[0] if context.pages else context.new_page()
+    return pw, context, page
+
+
 def main():
+    """Volledige seizoensexport (YTD) met git push."""
     headless = "--headless" in sys.argv
 
     today = date.today()
     from_date = date(2025, 12, 8)  # Start seizoen
     to_date = today
 
-    log.info(f"Start export (headless={headless})")
+    log.info(f"Start volledige export (headless={headless})")
 
-    with sync_playwright() as pw:
-        log.info("Browser starten...")
-        context = pw.chromium.launch_persistent_context(
-            user_data_dir=str(USER_DATA_DIR),
-            headless=headless,
-            viewport={"width": 1600, "height": 1000},
-            locale="nl-NL",
-            accept_downloads=True,
-        )
-        page = context.pages[0] if context.pages else context.new_page()
+    pw, context, page = _open_browser(headless)
+    try:
+        page.goto(REPORT_URL, wait_until="networkidle", timeout=30_000)
+        login_if_needed(page, headless)
+        log.info(f"Pagina geladen: {page.url}")
 
-        try:
-            log.info("Navigeren naar report pagina...")
-            page.goto(REPORT_URL, wait_until="networkidle", timeout=30_000)
+        set_date_filter(page, from_date, to_date)
+        click_search(page)
+        filepath = export_to_excel(page)
 
-            login_if_needed(page, headless)
-            log.info(f"Pagina geladen: {page.url}")
+        # Kopieer naar data/ en push
+        data_bestand = DATA_DIR / "AppointmentReport_latest.xlsx"
+        shutil.copy2(filepath, data_bestand)
+        log.info(f"Gekopieerd naar: {data_bestand}")
+        push_naar_github(data_bestand)
 
-            set_date_filter(page, from_date, to_date)
-            click_search(page)
-            filepath = export_to_excel(page)
-            push_naar_github(filepath)
+        log.info(f"Klaar! Bestand: {filepath}")
+    except Exception as e:
+        log.error(f"Fout: {e}")
+        raise
+    finally:
+        context.close()
+        pw.stop()
 
-            log.info(f"Klaar! Bestand: {filepath}")
-        except Exception as e:
-            log.error(f"Fout: {e}")
-            raise
-        finally:
-            context.close()
+
+def quick_refresh():
+    """Snelle refresh: alleen vandaag ophalen, git push voor Streamlit Cloud."""
+    headless = "--headless" in sys.argv
+    today = date.today()
+
+    log.info(f"Start quick refresh (headless={headless})")
+
+    pw, context, page = _open_browser(headless)
+    try:
+        page.goto(REPORT_URL, wait_until="networkidle", timeout=30_000)
+        login_if_needed(page, headless)
+        log.info(f"Pagina geladen: {page.url}")
+
+        set_date_filter(page, today, today)  # Alleen vandaag
+        click_search(page)
+        filepath = export_to_excel(page)
+
+        # Kopieer naar apart today-bestand (seizoensdata onaangetast)
+        today_bestand = DATA_DIR / "AppointmentReport_today.xlsx"
+        shutil.copy2(filepath, today_bestand)
+        log.info(f"Gekopieerd naar: {today_bestand}")
+        push_naar_github(today_bestand)
+
+        log.info(f"Quick refresh klaar! Bestand: {today_bestand}")
+    except Exception as e:
+        log.error(f"Quick refresh fout: {e}")
+        raise
+    finally:
+        context.close()
+        pw.stop()
 
 
 if __name__ == "__main__":
-    main()
+    if "--quick" in sys.argv:
+        quick_refresh()
+    else:
+        main()

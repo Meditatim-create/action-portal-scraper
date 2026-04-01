@@ -390,7 +390,7 @@ def render_vandaag():
     c1, c2, c3, c4 = st.columns(4)
     sublabel_afgerond = f"waarvan {afgerond_laat}× te laat" if afgerond_laat else ""
     _render_kpi_kaart(c1, "afgerond", afgerond_totaal, ELHO_GROEN, sublabel_afgerond)
-    _render_kpi_kaart(c2, "bezig met lossen", lossen, BLAUW)
+    _render_kpi_kaart(c2, "op locatie", lossen, BLAUW)
     _render_kpi_kaart(c3, "verwacht", verwacht, ELHO_DONKER)
     _render_kpi_kaart(c4, "te laat / risico", te_laat, ROOD)
 

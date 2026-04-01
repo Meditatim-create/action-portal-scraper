@@ -481,7 +481,9 @@ def check_login() -> bool:
 
         if verzonden:
             naam = gebruikersnaam.strip().lower()
-            if naam in gebruikers and gebruikers[naam] == wachtwoord:
+            # Secrets omzetten naar gewoon dict voor betrouwbare lookup
+            users = {k.lower(): v for k, v in dict(gebruikers).items()}
+            if naam in users and users[naam] == wachtwoord:
                 st.session_state.ingelogd = True
                 st.session_state.gebruiker = naam
                 st.rerun()

@@ -44,16 +44,18 @@ STATUS_VOLGORDE = {
     "Te laat": 0,
     "Op risico": 1,
     "Verwacht": 2,
-    "Bezig met lossen": 3,
-    "Afgerond — te laat": 4,
-    "Afgerond": 5,
-    "Geannuleerd / NoShow": 6,
-    "Overig": 7,
+    "Aangekomen": 3,
+    "Bezig met lossen": 4,
+    "Afgerond — te laat": 5,
+    "Afgerond": 6,
+    "Geannuleerd / NoShow": 7,
+    "Overig": 8,
 }
 
 STATUS_KLEUREN = {
     "Afgerond": ELHO_GROEN,
     "Afgerond — te laat": BRUIN,
+    "Aangekomen": BLAUW,
     "Bezig met lossen": BLAUW,
     "Verwacht": ELHO_DONKER,
     "Op risico": ORANJE,
@@ -134,6 +136,8 @@ def _bepaal_status(row, nu: datetime) -> str:
         if time_label in ("Late", "Late - Reported"):
             return "Afgerond — te laat"
         return "Afgerond"
+    if state == "Arrived":
+        return "Aangekomen"
     if state == "Unloading":
         return "Bezig met lossen"
     if state in ("Cancelled", "NoShow"):
@@ -377,7 +381,7 @@ def render_vandaag():
     afgerond_totaal = df_vandaag["Status"].isin(["Afgerond", "Afgerond — te laat"]).sum()
     afgerond_ok = (df_vandaag["Status"] == "Afgerond").sum()
     afgerond_laat = (df_vandaag["Status"] == "Afgerond — te laat").sum()
-    lossen = (df_vandaag["Status"] == "Bezig met lossen").sum()
+    lossen = df_vandaag["Status"].isin(["Bezig met lossen", "Aangekomen"]).sum()
     verwacht = df_vandaag["Status"].isin(["Verwacht", "Op risico"]).sum()
     te_laat = (df_vandaag["Status"] == "Te laat").sum()
     totaal = len(df_vandaag)

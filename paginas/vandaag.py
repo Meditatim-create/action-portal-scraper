@@ -280,6 +280,23 @@ def _render_ritten_tabel(df_vandaag: pd.DataFrame, nu: datetime):
         vkleur = ROOD if status == "Te laat" else BRUIN if vertr else ELHO_DONKER
         vhtml = f'<span style="color:{vkleur};font-weight:600;">{vertr}</span>' if vertr else ""
 
+        # Opmerkingen kolom
+        opmerkingen = []
+        state = rij.get("Inbound state", "")
+        if state == "Removed":
+            opmerkingen.append("verwijderd door Action")
+        elif state == "Refused":
+            opmerkingen.append("geweigerd")
+        elif state == "Left":
+            opmerkingen.append("vertrokken zonder lossing")
+        elif state == "NoShow":
+            opmerkingen.append("no-show")
+        elif state == "Cancelled":
+            opmerkingen.append("geannuleerd")
+        if pd.notna(rij.get("Arrival")) and rij["Arrival"].date() != nu.date():
+            opmerkingen.append(f'aangekomen {rij["Arrival"].strftime("%-d/%-m").replace("/0", "/")}')
+        opm_html = f'<span style="color:{BRUIN};font-size:0.78rem;">{" · ".join(opmerkingen)}</span>' if opmerkingen else ""
+
         rijen.append(
             f'<tr style="border-bottom:1px solid #eee;{bg}">'
             f'<td style="{td}">{badge}</td>'
@@ -290,6 +307,7 @@ def _render_ritten_tabel(df_vandaag: pd.DataFrame, nu: datetime):
             f'<td style="{td}color:{ELHO_DONKER}99;">{arr}</td>'
             f'<td style="{td}text-align:center;">{pal}</td>'
             f'<td style="{td}">{vhtml}</td>'
+            f'<td style="{td}">{opm_html}</td>'
             f'</tr>'
         )
 
@@ -308,6 +326,7 @@ def _render_ritten_tabel(df_vandaag: pd.DataFrame, nu: datetime):
         f'<col style="width:65px;">'    # aankomst
         f'<col style="width:50px;">'    # pallets
         f'<col style="width:80px;">'    # vertraging
+        f'<col style="width:auto;">'   # opmerkingen
         f'</colgroup>'
         f'<thead><tr style="background:{CRÈME};border-bottom:2px solid {ELHO_GROEN}40;">'
         f'<th style="{th}">status</th>'
@@ -318,6 +337,7 @@ def _render_ritten_tabel(df_vandaag: pd.DataFrame, nu: datetime):
         f'<th style="{th}">aankomst</th>'
         f'<th style="{th}text-align:center;">pallets</th>'
         f'<th style="{th}">vertraging</th>'
+        f'<th style="{th}">opmerking</th>'
         f'</tr></thead>'
         f'<tbody>{body}</tbody>'
         f'</table></div>'

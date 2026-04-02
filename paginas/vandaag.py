@@ -253,7 +253,19 @@ def _render_ritten_tabel(df_vandaag: pd.DataFrame, nu: datetime):
         owner = rij.get("Owner", "")
         dc = rij.get("DC", "")
         apt = rij["Appointment"].strftime("%H:%M") if pd.notna(rij.get("Appointment")) else ""
-        arr = rij["Arrival"].strftime("%H:%M") if pd.notna(rij.get("Arrival")) else "\u2014"
+        if pd.notna(rij.get("Arrival")):
+            arrival_dt = rij["Arrival"]
+            if arrival_dt.date() != nu.date():
+                # Aankomst op andere dag → toon datum erbij
+                arr = arrival_dt.strftime("%-d/%-m %H:%M") if hasattr(arrival_dt, 'strftime') else str(arrival_dt)
+                try:
+                    arr = arrival_dt.strftime("%-d/%-m %H:%M")
+                except ValueError:
+                    arr = arrival_dt.strftime("%d/%m %H:%M").lstrip("0").replace("/0", "/")
+            else:
+                arr = arrival_dt.strftime("%H:%M")
+        else:
+            arr = "\u2014"
         pal = int(rij["Pallets"]) if pd.notna(rij.get("Pallets")) else ""
         vertr = rij["Vertraging"]
 

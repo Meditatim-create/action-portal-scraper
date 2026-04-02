@@ -169,8 +169,8 @@ def _bepaal_status(row, nu: datetime) -> str:
         if minuten_over > 0:
             # Afspraaktijd gepasseerd maar nog binnen 30 min marge
             return "Op risico"
-        if appointment < nu + timedelta(hours=1):
-            # Afspraak binnen komend uur
+        if appointment < nu - timedelta(minutes=5):
+            # Meer dan 5 minuten over de afspraaktijd
             return "Op risico"
         return "Verwacht"
 

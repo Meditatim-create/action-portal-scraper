@@ -32,15 +32,16 @@ DATUM_KOLOMMEN = [
 NUMERIEKE_KOLOMMEN = ["Too late (min)", "Waiting (min)", "Unloading (min)", "Pallets"]
 
 STATUS_VOLGORDE = {
-    "Te laat": 0,
-    "Op risico": 1,
-    "Verwacht": 2,
-    "Aangekomen": 3,
-    "Bezig met lossen": 4,
-    "Afgerond — te laat": 5,
-    "Afgerond": 6,
-    "Geannuleerd / NoShow": 7,
-    "Overig": 8,
+    "No-show": 0,
+    "Te laat": 1,
+    "Op risico": 2,
+    "Verwacht": 3,
+    "Aangekomen": 4,
+    "Bezig met lossen": 5,
+    "Afgerond — te laat": 6,
+    "Afgerond": 7,
+    "Geannuleerd": 8,
+    "Overig": 9,
 }
 
 STATUS_KLEUREN = {
@@ -51,7 +52,8 @@ STATUS_KLEUREN = {
     "Verwacht": ELHO_DONKER,
     "Op risico": ORANJE,
     "Te laat": ROOD,
-    "Geannuleerd / NoShow": GRIJS,
+    "No-show": ROOD,
+    "Geannuleerd": GRIJS,
     "Overig": GRIJS,
 }
 
@@ -155,8 +157,10 @@ def _bepaal_status(row, nu: datetime) -> str:
         return "Aangekomen"
     if state == "Unloading":
         return "Bezig met lossen"
-    if state in ("Cancelled", "NoShow"):
-        return "Geannuleerd / NoShow"
+    if state == "NoShow":
+        return "No-show"
+    if state == "Cancelled":
+        return "Geannuleerd"
     if state in ("Refused", "Removed", "Left"):
         return "Overig"
 
@@ -270,8 +274,8 @@ def _render_ritten_tabel(df_vandaag: pd.DataFrame, nu: datetime):
         vertr = rij["Vertraging"]
 
         bg = ""
-        if status == "Te laat":
-            bg = f"background:{ROOD}08;"
+        if status in ("Te laat", "No-show"):
+            bg = f"background:{ROOD}10;"
         elif status == "Op risico":
             bg = f"background:{ORANJE}06;"
         elif "te laat" in status:
@@ -426,22 +430,41 @@ def render_vandaag():
     df_vandaag["Status"] = df_vandaag.apply(_bepaal_status, axis=1, nu=nu)
 
     afgerond_totaal = df_vandaag["Status"].isin(["Afgerond", "Afgerond — te laat"]).sum()
-    afgerond_ok = (df_vandaag["Status"] == "Afgerond").sum()
     afgerond_laat = (df_vandaag["Status"] == "Afgerond — te laat").sum()
     lossen = df_vandaag["Status"].isin(["Bezig met lossen", "Aangekomen"]).sum()
     verwacht = df_vandaag["Status"].isin(["Verwacht", "Op risico"]).sum()
     te_laat = (df_vandaag["Status"] == "Te laat").sum()
+    no_show = (df_vandaag["Status"] == "No-show").sum()
     # Removed/Refused/Left tellen niet mee in totaal
     overig = df_vandaag["Inbound state"].isin(["Removed", "Refused", "Left"]).sum()
     totaal = len(df_vandaag) - overig
 
+    # No-show banner — grote rode waarschuwing bovenaan
+    if no_show > 0:
+        noshow_ritten = df_vandaag[df_vandaag["Status"] == "No-show"]
+        noshow_info = ", ".join(
+            f"Ship {int(r['Ship ID'])} ({r['DC']})"
+            for _, r in noshow_ritten.iterrows()
+            if pd.notna(r.get("Ship ID"))
+        )
+        st.markdown(
+            f'<div style="background:{ROOD}15;border:2px solid {ROOD};border-radius:12px;'
+            f'padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">'
+            f'<span style="font-size:1.4rem;">🚨</span>'
+            f'<div><div style="font-weight:700;color:{ROOD};font-size:1rem;">No-show geregistreerd!</div>'
+            f'<div style="font-size:0.85rem;color:{ELHO_DONKER}90;margin-top:2px;">{noshow_info} — actie vereist</div></div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
     # KPI kaarten
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     sublabel_afgerond = f"waarvan {afgerond_laat}× te laat" if afgerond_laat else ""
     _render_kpi_kaart(c1, "afgerond", afgerond_totaal, ELHO_GROEN, sublabel_afgerond)
     _render_kpi_kaart(c2, "op locatie", lossen, BLAUW)
     _render_kpi_kaart(c3, "verwacht", verwacht, ELHO_DONKER)
     _render_kpi_kaart(c4, "te laat / risico", te_laat, ROOD)
+    _render_kpi_kaart(c5, "no-show", no_show, ROOD if no_show > 0 else GRIJS)
 
     # Voortgangsbalk
     _render_voortgang(afgerond_totaal, totaal)

@@ -431,7 +431,9 @@ def render_vandaag():
     lossen = df_vandaag["Status"].isin(["Bezig met lossen", "Aangekomen"]).sum()
     verwacht = df_vandaag["Status"].isin(["Verwacht", "Op risico"]).sum()
     te_laat = (df_vandaag["Status"] == "Te laat").sum()
-    totaal = len(df_vandaag)
+    # Removed/Refused/Left tellen niet mee in totaal
+    overig = df_vandaag["Inbound state"].isin(["Removed", "Refused", "Left"]).sum()
+    totaal = len(df_vandaag) - overig
 
     # KPI kaarten
     c1, c2, c3, c4 = st.columns(4)

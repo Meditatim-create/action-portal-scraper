@@ -530,8 +530,8 @@ if st.session_state.df_action is None:
 
 paginas = []
 
-# Vandaag en Gisteren alleen voor Tim (nog in ontwikkeling)
-if st.session_state.get("gebruiker") == "tim":
+# Vandaag en Gisteren voor Tim en Leo
+if st.session_state.get("gebruiker") in ("tim", "leo"):
     paginas.append(st.Page("paginas/vandaag.py", title="Vandaag", icon="📋", default=True))
     paginas.append(st.Page("paginas/gisteren.py", title="Gisteren", icon="📝"))
 

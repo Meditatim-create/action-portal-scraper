@@ -528,10 +528,19 @@ if st.session_state.df_action is None:
 
 # ---------- Navigatie ----------
 
+
+def _gebruiker_rol() -> str:
+    """Geeft de rol van de ingelogde gebruiker ('volledig' of 'performance')."""
+    try:
+        rollen = st.secrets["rollen"]
+        return dict(rollen).get(st.session_state.get("gebruiker", ""), "performance")
+    except (KeyError, FileNotFoundError):
+        return "volledig"  # dev mode = alles zichtbaar
+
+
 paginas = []
 
-# Vandaag en Gisteren voor Tim en Leo
-if st.session_state.get("gebruiker") in ("tim", "leo"):
+if _gebruiker_rol() == "volledig":
     paginas.append(st.Page("paginas/vandaag.py", title="Vandaag", icon="📋", default=True))
     paginas.append(st.Page("paginas/gisteren.py", title="Gisteren", icon="📝"))
 

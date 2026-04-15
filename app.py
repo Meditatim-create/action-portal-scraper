@@ -60,20 +60,27 @@ def _verrijk_met_carrier(df: pd.DataFrame) -> pd.DataFrame:
         df["Carrier"] = "Onbekend"
         return df
 
-    sf = pd.read_excel(
-        shipping_pad, sheet_name="hoofd tab",
-        usecols=["action shipping no.", "carrier"],
-    )
-    sf = sf.dropna(subset=["action shipping no."])
-    sf["action shipping no."] = (
-        sf["action shipping no."].astype(str).str.replace(r"\.0$", "", regex=True)
-    )
-    sf = sf.rename(columns={"action shipping no.": "Ship ID", "carrier": "Carrier"})
-    sf = sf.drop_duplicates(subset="Ship ID", keep="last")
+    try:
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sf = pd.read_excel(
+                shipping_pad, sheet_name="hoofd tab",
+                usecols=["action shipping no.", "carrier"],
+            )
+        sf = sf.dropna(subset=["action shipping no."])
+        sf["action shipping no."] = (
+            sf["action shipping no."].astype(str).str.replace(r"\.0$", "", regex=True)
+        )
+        sf = sf.rename(columns={"action shipping no.": "Ship ID", "carrier": "Carrier"})
+        sf = sf.drop_duplicates(subset="Ship ID", keep="last")
 
-    df["Ship ID"] = df["Ship ID"].astype(str).str.strip()
-    df = df.merge(sf[["Ship ID", "Carrier"]], on="Ship ID", how="left")
-    df["Carrier"] = df["Carrier"].fillna("Onbekend").str.strip()
+        df["Ship ID"] = df["Ship ID"].astype(str).str.strip()
+        df = df.merge(sf[["Ship ID", "Carrier"]], on="Ship ID", how="left")
+        df["Carrier"] = df["Carrier"].fillna("Onbekend").str.strip()
+    except Exception:
+        df["Carrier"] = "Onbekend"
+
     return df
 
 
@@ -576,6 +583,12 @@ if not check_login():
     st.stop()
 
 # Data laden: data/ map (cloud) → downloads/ map (lokaal) → file uploader (fallback)
+# Versie-marker: bij code-update wordt data opnieuw geladen
+_DATA_VERSIE = 2
+if st.session_state.get("_data_versie") != _DATA_VERSIE:
+    st.session_state.df_action = None
+    st.session_state._data_versie = _DATA_VERSIE
+
 if "df_action" not in st.session_state:
     st.session_state.df_action = None
 

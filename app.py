@@ -53,6 +53,30 @@ def verwerk_excel(bestand) -> pd.DataFrame:
     return df
 
 
+def _verrijk_met_carrier(df: pd.DataFrame) -> pd.DataFrame:
+    """Voeg carrier-kolom toe vanuit shipping file."""
+    shipping_pad = os.path.join(DATA_PAD, "shipping_file.xlsx")
+    if not os.path.exists(shipping_pad):
+        df["Carrier"] = "Onbekend"
+        return df
+
+    sf = pd.read_excel(
+        shipping_pad, sheet_name="hoofd tab",
+        usecols=["action shipping no.", "carrier"],
+    )
+    sf = sf.dropna(subset=["action shipping no."])
+    sf["action shipping no."] = (
+        sf["action shipping no."].astype(str).str.replace(r"\.0$", "", regex=True)
+    )
+    sf = sf.rename(columns={"action shipping no.": "Ship ID", "carrier": "Carrier"})
+    sf = sf.drop_duplicates(subset="Ship ID", keep="last")
+
+    df["Ship ID"] = df["Ship ID"].astype(str).str.strip()
+    df = df.merge(sf[["Ship ID", "Carrier"]], on="Ship ID", how="left")
+    df["Carrier"] = df["Carrier"].fillna("Onbekend").str.strip()
+    return df
+
+
 # ---------- Hulpfuncties ----------
 
 def week_label(datum: pd.Timestamp) -> str:
@@ -127,6 +151,10 @@ def _render_filters(df: pd.DataFrame):
         dcs = sorted(df["DC"].dropna().unique())
         st.sidebar.multiselect("DC (distributiecentrum)", dcs, key="action_dc_filter")
 
+    if "Carrier" in df.columns:
+        carriers = sorted(df["Carrier"].dropna().unique())
+        st.sidebar.multiselect("Carrier", carriers, key="action_carrier_filter")
+
     if "Appointment" in df.columns:
         datum_vals = df["Appointment"].dropna()
         if not datum_vals.empty:
@@ -157,6 +185,10 @@ def _pas_filters_toe(df: pd.DataFrame) -> pd.DataFrame:
     geselecteerde_dcs = st.session_state.get("action_dc_filter", [])
     if geselecteerde_dcs:
         mask &= df["DC"].isin(geselecteerde_dcs)
+
+    geselecteerde_carriers = st.session_state.get("action_carrier_filter", [])
+    if geselecteerde_carriers:
+        mask &= df["Carrier"].isin(geselecteerde_carriers)
 
     if "Appointment" in df.columns:
         datum_van = st.session_state.get("action_datum_van")
@@ -210,6 +242,48 @@ def _render_dc_barchart(df: pd.DataFrame, tel_late_mee: bool):
     fig.update_layout(
         xaxis=dict(title="%", range=[0, 110]),
         height=max(350, len(dc_stats) * 28),
+        margin=dict(l=10, r=10, t=10, b=30),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def _render_carrier_barchart(df: pd.DataFrame, tel_late_mee: bool):
+    """Barchart: slot performance % per carrier."""
+    st.subheader("Slot Performance per Carrier")
+
+    if "Carrier" not in df.columns:
+        st.info("Geen carrier-data beschikbaar.")
+        return
+
+    carrier_groups = []
+    for carrier, groep in df.groupby("Carrier"):
+        totaal = len(groep)
+        finished = (groep["Inbound state"] == "Finished").sum()
+
+        if tel_late_mee:
+            goed = groep["Time label"].isin(TIME_LABEL_GOED).sum()
+        else:
+            goed = finished
+
+        pct = (goed / totaal * 100) if totaal > 0 else 0
+        carrier_groups.append({"Carrier": carrier, "pct": round(pct, 1), "totaal": totaal})
+
+    carrier_stats = pd.DataFrame(carrier_groups).sort_values("pct", ascending=True)
+    kleuren = [ELHO_GROEN if pct >= 95 else ROOD for pct in carrier_stats["pct"]]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        y=carrier_stats["Carrier"],
+        x=carrier_stats["pct"],
+        orientation="h",
+        marker_color=kleuren,
+        text=[f"{v:.0f}% ({t})" for v, t in zip(carrier_stats["pct"], carrier_stats["totaal"])],
+        textposition="outside",
+    ))
+    fig.add_vline(x=95, line_dash="dash", line_color=ELHO_DONKER, annotation_text="Target 95%")
+    fig.update_layout(
+        xaxis=dict(title="%", range=[0, 110]),
+        height=max(350, len(carrier_stats) * 35),
         margin=dict(l=10, r=10, t=10, b=30),
     )
     st.plotly_chart(fig, use_container_width=True)
@@ -303,7 +377,7 @@ def _render_detail_tabel(df: pd.DataFrame):
     st.subheader("Alle Shipments")
 
     toon_kolommen = [
-        "Owner", "Ship ID", "PO NO", "DC", "Inbound state",
+        "Owner", "Ship ID", "PO NO", "DC", "Carrier", "Inbound state",
         "Appointment", "Time label", "Arrival",
         "Too late (min)", "Waiting (min)", "Unloading (min)",
         "Pallets", "Zone", "Reported issue", "Refusal reason",
@@ -393,6 +467,11 @@ def render_dashboard(df: pd.DataFrame):
         _render_pie_chart(df)
 
     st.markdown("---")
+
+    # Carrier performance
+    if "Carrier" in df_onze.columns:
+        _render_carrier_barchart(df_onze, tel_late_mee)
+        st.markdown("---")
 
     # Trend
     _render_trend_chart(df_onze, tel_late_mee)
@@ -505,7 +584,7 @@ def _laad_automatisch():
     # 1. data/ map (Streamlit Cloud — gepusht door scraper)
     latest = os.path.join(DATA_PAD, "AppointmentReport_latest.xlsx")
     if os.path.exists(latest):
-        return verwerk_excel(latest), "cloud"
+        return _verrijk_met_carrier(verwerk_excel(latest)), "cloud"
 
     # 2. downloads/ map (lokaal development)
     pattern = os.path.join(DOWNLOADS_PAD, "AppointmentReport_*.xlsx")
@@ -519,7 +598,7 @@ def _laad_automatisch():
                 bestanden_met_datum.append((m.group(1), pad))
         if bestanden_met_datum:
             bestanden_met_datum.sort(reverse=True)
-            return verwerk_excel(bestanden_met_datum[0][1]), "lokaal"
+            return _verrijk_met_carrier(verwerk_excel(bestanden_met_datum[0][1])), "lokaal"
 
     return None, None
 

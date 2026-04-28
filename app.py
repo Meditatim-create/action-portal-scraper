@@ -24,6 +24,7 @@ from constanten import (  # noqa: E402
     ORANJE,
     ROOD,
     SLECHT_STATES,
+    STANDAARD_UITGESLOTEN_OWNERS,
     TIME_LABEL_GOED,
     TIME_LABEL_SLECHT,
 )
@@ -78,6 +79,12 @@ def _verrijk_met_carrier(df: pd.DataFrame) -> pd.DataFrame:
         df["Ship ID"] = df["Ship ID"].astype(str).str.strip()
         df = df.merge(sf[["Ship ID", "Carrier"]], on="Ship ID", how="left")
         df["Carrier"] = df["Carrier"].fillna("Onbekend").str.strip()
+        # Bij meerdere carriers (bijv. "Sennder/KLG"), gebruik de tweede
+        df["Carrier"] = df["Carrier"].apply(
+            lambda c: c.split("/")[1].strip() if "/" in str(c) else c
+        )
+        # Aliassen normaliseren
+        df["Carrier"] = df["Carrier"].replace({"DV": "Dollevoet", "sennder": "Sennder"})
     except Exception:
         df["Carrier"] = "Onbekend"
 
@@ -154,6 +161,15 @@ def _render_filters(df: pd.DataFrame):
         owners = sorted(df["Owner"].dropna().loc[df["Owner"].str.strip() != ""].unique())
         st.sidebar.multiselect("Owner (DSV / Goods)", owners, key="action_owner_filter")
 
+        # Standaard uitgesloten owners alleen tonen als ze daadwerkelijk in de data voorkomen
+        zichtbare_uitsluiting = [o for o in STANDAARD_UITGESLOTEN_OWNERS if o in owners]
+        for owner in zichtbare_uitsluiting:
+            st.sidebar.checkbox(
+                f"Toon {owner}",
+                value=False,
+                key=f"action_toon_owner_{owner}",
+            )
+
     if "DC" in df.columns:
         dcs = sorted(df["DC"].dropna().unique())
         st.sidebar.multiselect("DC (distributiecentrum)", dcs, key="action_dc_filter")
@@ -188,6 +204,12 @@ def _pas_filters_toe(df: pd.DataFrame) -> pd.DataFrame:
     geselecteerde_owners = st.session_state.get("action_owner_filter", [])
     if geselecteerde_owners:
         mask &= df["Owner"].isin(geselecteerde_owners)
+    else:
+        # Sluit standaard de owners uit waarvoor de toon-checkbox uit staat,
+        # tenzij ze expliciet in de multiselect zijn gekozen.
+        for owner in STANDAARD_UITGESLOTEN_OWNERS:
+            if not st.session_state.get(f"action_toon_owner_{owner}", False):
+                mask &= df["Owner"] != owner
 
     geselecteerde_dcs = st.session_state.get("action_dc_filter", [])
     if geselecteerde_dcs:

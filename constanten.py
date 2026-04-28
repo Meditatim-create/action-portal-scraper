@@ -33,6 +33,9 @@ TIME_LABEL_SLECHT = ["Late", "Late - Reported"]
 ONZE_PERFORMANCE_STATES = ["Finished", "Cancelled", "NoShow"]
 SLECHT_STATES = ["Cancelled", "NoShow"]
 
+# Owners die standaard uit de analyse worden gelaten (kan via sidebar toggle weer aan).
+STANDAARD_UITGESLOTEN_OWNERS = ["DSV Road sp. z o.o."]
+
 # ---------- Refresh ----------
 
 REFRESH_INTERVAL = 600  # Seconden (10 minuten) tussen live data-refreshes

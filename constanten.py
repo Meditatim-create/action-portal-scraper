@@ -36,6 +36,27 @@ SLECHT_STATES = ["Cancelled", "NoShow"]
 # Owners die standaard uit de analyse worden gelaten (kan via sidebar toggle weer aan).
 STANDAARD_UITGESLOTEN_OWNERS = ["DSV Road sp. z o.o."]
 
+# ---------- Analyse incidenten ----------
+
+# States die als "incident" gelden en dus een reason vereisen
+INCIDENT_STATES = ["Cancelled", "NoShow", "Refused", "Removed"]
+
+# Vooraf gedefinieerde categorieën voor lerend systeem
+INCIDENT_CATEGORIEEN = [
+    "Carrier — te laat onderweg",
+    "Carrier — geen capaciteit",
+    "Elho — order te laat klaar",
+    "Elho — verkeerd ingepland logistics",
+    "Elho — verkeerd ingepland team goods",
+    "Action — slot teruggetrokken",
+    "Action — DC vol",
+    "Klantverzoek — verschoven",
+    "Goederen niet beschikbaar",
+    "Anders (zie toelichting)",
+]
+
+REASONS_PAD = os.path.join(DATA_PAD, "reasons.json")
+
 # ---------- Refresh ----------
 
 REFRESH_INTERVAL = 600  # Seconden (10 minuten) tussen live data-refreshes

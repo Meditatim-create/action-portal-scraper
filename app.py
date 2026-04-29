@@ -660,5 +660,8 @@ if _gebruiker_rol() == "volledig":
 
 paginas.append(st.Page("paginas/performance.py", title="Performance", icon="📊"))
 
+if _gebruiker_rol() == "volledig":
+    paginas.append(st.Page("paginas/incidenten.py", title="Analyse Incidenten", icon="🔍"))
+
 nav = st.navigation(paginas)
 nav.run()

@@ -41,18 +41,13 @@ STANDAARD_UITGESLOTEN_OWNERS = ["DSV Road sp. z o.o."]
 # States die als "incident" gelden en dus een reason vereisen
 INCIDENT_STATES = ["Cancelled", "NoShow", "Refused", "Removed"]
 
-# Vooraf gedefinieerde categorieën voor lerend systeem
+# Vooraf gedefinieerde categorieën — bewust kort gehouden.
+# Detail/oorzaak komt in de toelichting, niet in de categorie.
 INCIDENT_CATEGORIEEN = [
-    "Carrier — te laat onderweg",
-    "Carrier — geen capaciteit",
-    "Elho — order te laat klaar",
-    "Elho — verkeerd ingepland logistics",
-    "Elho — verkeerd ingepland team goods",
-    "Action — slot teruggetrokken",
-    "Action — DC vol",
-    "Klantverzoek — verschoven",
-    "Goederen niet beschikbaar",
-    "Anders (zie toelichting)",
+    "Action",
+    "Carrier",
+    "Logistics",
+    "Goods",
 ]
 
 REASONS_PAD = os.path.join(DATA_PAD, "reasons.json")

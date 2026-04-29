@@ -1,7 +1,7 @@
 """Analyse Incidenten — log oorzaken voor Cancelled/NoShow/Refused/Removed."""
 
 import os
-from datetime import date
+from datetime import date, timedelta
 
 import pandas as pd
 import streamlit as st
@@ -184,19 +184,66 @@ def render_incidenten():
     # Reasons laden
     reasons = laad_reasons()
 
-    # Stats
+    # ---------- Scope-filters (bepalen waar de stats over gaan) ----------
+    fcol1, fcol2 = st.columns([1, 1])
+    geselecteerde_states = fcol1.multiselect(
+        "Filter op state",
+        INCIDENT_STATES,
+        default=INCIDENT_STATES,
+        key="incident_filter_states",
+    )
+
+    # Datumfilter (default: laatste 4 weken)
+    datum_van = None
+    datum_tot = None
+    if "Appointment" in df_inc.columns:
+        datum_vals = df_inc["Appointment"].dropna()
+        if not datum_vals.empty:
+            min_d = datum_vals.min().date()
+            max_d = datum_vals.max().date()
+            default_van = max(max_d - timedelta(days=28), min_d)
+
+            with fcol2:
+                dc1, dc2 = st.columns(2)
+                datum_van = dc1.date_input(
+                    "Van",
+                    value=default_van,
+                    min_value=min_d,
+                    max_value=max_d,
+                    key="incident_datum_van",
+                )
+                datum_tot = dc2.date_input(
+                    "Tot",
+                    value=max_d,
+                    min_value=min_d,
+                    max_value=max_d,
+                    key="incident_datum_tot",
+                )
+                if st.button("Toon hele seizoen", key="incident_datum_reset"):
+                    st.session_state.incident_datum_van = min_d
+                    st.session_state.incident_datum_tot = max_d
+                    st.rerun()
+
+    # Filters toepassen
+    df_inc = df_inc[df_inc["Inbound state"].isin(geselecteerde_states)]
+    if datum_van is not None and datum_tot is not None:
+        df_inc = df_inc[
+            (df_inc["Appointment"].dt.date >= datum_van)
+            & (df_inc["Appointment"].dt.date <= datum_tot)
+        ]
+
+    # ---------- Stats over de gefilterde scope ----------
     totaal = len(df_inc)
     gelogd = sum(1 for sid in df_inc["Ship ID"].astype(str) if sid in reasons)
     open_aantal = totaal - gelogd
     pct_gelogd = (gelogd / totaal * 100) if totaal > 0 else 0
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Totaal incidenten", totaal)
+    c1.metric("Incidenten in scope", totaal)
     c2.metric("Gelogd", gelogd)
     c3.metric("Open", open_aantal)
     c4.metric("Voortgang", f"{pct_gelogd:.0f}%")
 
-    # Voortgangsbalk
     st.markdown(
         f"""
         <div style="background:{ELHO_DONKER}12;border-radius:8px;height:8px;overflow:hidden;margin:6px 0 16px;">
@@ -206,34 +253,27 @@ def render_incidenten():
         unsafe_allow_html=True,
     )
 
-    # Filters
-    fcol1, fcol2 = st.columns([1, 2])
-    toon = fcol1.radio(
+    # ---------- View-toggle (alleen wat in de lijst getoond wordt) ----------
+    toon = st.radio(
         "Tonen",
         ["Alleen open", "Alleen gelogd", "Alles"],
         horizontal=True,
         key="incident_filter_status",
     )
-    geselecteerde_states = fcol2.multiselect(
-        "Filter op state",
-        INCIDENT_STATES,
-        default=INCIDENT_STATES,
-        key="incident_filter_states",
-    )
 
-    df_inc = df_inc[df_inc["Inbound state"].isin(geselecteerde_states)]
+    df_lijst = df_inc.copy()
     if toon == "Alleen open":
-        df_inc = df_inc[~df_inc["Ship ID"].astype(str).isin(reasons)]
+        df_lijst = df_lijst[~df_lijst["Ship ID"].astype(str).isin(reasons)]
     elif toon == "Alleen gelogd":
-        df_inc = df_inc[df_inc["Ship ID"].astype(str).isin(reasons)]
+        df_lijst = df_lijst[df_lijst["Ship ID"].astype(str).isin(reasons)]
 
     st.markdown("---")
 
-    if df_inc.empty:
+    if df_lijst.empty:
         st.info("Geen incidenten matchen de huidige filter.")
     else:
         # Incidenten lijst
-        for _, rij in df_inc.iterrows():
+        for _, rij in df_lijst.iterrows():
             sid = str(rij["Ship ID"])
             _render_incident_form(rij, reasons.get(sid))
 

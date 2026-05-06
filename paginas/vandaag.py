@@ -17,6 +17,7 @@ from constanten import (
     ORANJE,
     REFRESH_INTERVAL,
     ROOD,
+    STANDAARD_UITGESLOTEN_OWNERS,
     nl_datum,
 )
 
@@ -136,6 +137,9 @@ def _laad_today_data() -> pd.DataFrame | None:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
         for col in df.select_dtypes(include="object").columns:
             df[col] = df[col].str.strip()
+        # Owners die op dagniveau geen focus hebben weglaten
+        if "Owner" in df.columns and STANDAARD_UITGESLOTEN_OWNERS:
+            df = df[~df["Owner"].isin(STANDAARD_UITGESLOTEN_OWNERS)].copy()
         return df
     except Exception:
         return None

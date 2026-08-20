@@ -184,11 +184,14 @@ def _render_filters(df: pd.DataFrame):
             min_d = datum_vals.min().date()
             max_d = datum_vals.max().date()
             vw_van, vw_tot = _vorige_werkweek()
-            # Begrens standaardwaarden binnen [min_d, max_d]. Klem aan beide
-            # kanten: als de vorige werkweek volledig buiten de databereik valt
-            # (bijv. data loopt achter op de kalender), val terug op de rand.
-            default_van = min(max(vw_van, min_d), max_d)
-            default_tot = min(max(vw_tot, min_d), max_d)
+            # Standaard: vorige werkweek. Maar als die volledig buiten de
+            # beschikbare data valt (bijv. data loopt achter op de kalender),
+            # toon dan het hele beschikbare bereik i.p.v. één losse randdag.
+            if vw_van > max_d or vw_tot < min_d:
+                default_van, default_tot = min_d, max_d
+            else:
+                default_van = min(max(vw_van, min_d), max_d)
+                default_tot = min(max(vw_tot, min_d), max_d)
 
             st.sidebar.date_input("Van", value=default_van, min_value=min_d, max_value=max_d, key="action_datum_van")
             st.sidebar.date_input("Tot", value=default_tot, min_value=min_d, max_value=max_d, key="action_datum_tot")
